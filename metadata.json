@@ -1,0 +1,19 @@
+{
+  "icon": "docker.svg",
+  "vm": {
+    "composefile": "docker-compose.yaml",
+    "exposes": {
+      "socket": "extension-graph-view.sock"
+    }
+  },
+  "ui": {
+    "dashboard-tab": {
+      "title": "Graph-View",
+      "src": "index.html",
+      "root": "ui",
+      "backend": {
+        "socket": "extension-graph-view.sock"
+      }
+    }
+  }
+}
