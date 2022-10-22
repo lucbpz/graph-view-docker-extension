@@ -30,9 +30,9 @@ LABEL org.opencontainers.image.title="Graph View" \
     com.docker.desktop.extension.icon="https://raw.githubusercontent.com/lucbpz/graph-view-docker-extension/main/network-graph.svg" \
     com.docker.extension.categories="utility-tools" \
     com.docker.extension.screenshots="[ \
-    {\"url\": \"https://raw.githubusercontent.com/lucbpz/graph-view-docker-extension/main/screenshots/1-network-graph.svg\", \
+    {\"url\": \"https://raw.githubusercontent.com/lucbpz/graph-view-docker-extension/main/screenshots/1-network-graph.png\", \
      \"alt\": \"Network Graph visualization of your Docker containers\"}, \
-    {\"url\": \"https://raw.githubusercontent.com/lucbpz/graph-view-docker-extension/main/screenshots/2-detail.svg\", \
+    {\"url\": \"https://raw.githubusercontent.com/lucbpz/graph-view-docker-extension/main/screenshots/2-detail.png\", \
      \"alt\": \"Detail of Docker container\"} \
     ]" \
     com.docker.extension.detailed-description="<p>With Graph View you can:</p> \
