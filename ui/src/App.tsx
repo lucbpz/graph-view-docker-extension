@@ -1,4 +1,4 @@
-import React, { createRef, useEffect, useRef } from "react";
+import React, { createRef, useEffect, useLayoutEffect, useRef } from "react";
 import Button from "@mui/material/Button";
 import { createDockerDesktopClient } from "@docker/extension-api-client";
 import {
@@ -14,6 +14,7 @@ import {
   useTheme,
 } from "@mui/material";
 import * as d3 from "d3";
+import { Header } from "./Header";
 // Note: This line relies on Docker Desktop's presence as a host application.
 // If you're running this React app in a browser, it won't work properly.
 const client = createDockerDesktopClient();
@@ -34,7 +35,7 @@ const NODE_TYPE = {
   CONTAINER: 1,
   IMAGE: 2,
   VOLUME: 3,
-}
+};
 
 function useDockerDesktopClient() {
   return client;
@@ -140,22 +141,22 @@ const getColor = (status) => {
   }
 };
 
-
 const removeTagFromImg = (imgNameWithTag: string) => {
-  const index = imgNameWithTag.lastIndexOf(':');
+  const index = imgNameWithTag.lastIndexOf(":");
   return imgNameWithTag.slice(0, index);
-}
+};
 
 export function App() {
   const svgRef = createRef<SVGSVGElement>();
   const ddClient = useDockerDesktopClient();
   const [data, setData] = React.useState<{ nodes; links }>();
   const [selectedNode, setSelectedNode] = React.useState<{ id; data; group }>();
+  const theme = useTheme();
 
   const fetchAndDisplayResponse = async () => {
     const containers = await ddClient.docker.listContainers({ all: true });
     const images = await ddClient.docker.listImages();
-    console.log(await ddClient.docker.cli.exec('images', []))
+    console.log(await ddClient.docker.cli.exec("images", []));
     // const volumes = await ddClient.extension.vm.service.get("/volumes");
     // console.log(volumes)
     const [first, ...rawVolumes] = (
@@ -209,7 +210,9 @@ export function App() {
     for (const volumeName of volumeNames) {
       nodes.push({
         id: volumeName,
-        data: (await ddClient.docker.cli.exec('volume inspect', [volumeName])).parseJsonObject()[0],
+        data: (
+          await ddClient.docker.cli.exec("volume inspect", [volumeName])
+        ).parseJsonObject()[0],
         group: NODE_TYPE.VOLUME,
         radius: 20,
       });
@@ -236,8 +239,8 @@ export function App() {
         height = svg.attr("height");
 
       svg.selectAll("*").remove();
-      const innerSvg = svg.append('g');
-      
+      const innerSvg = svg.append("g");
+
       svg.call(
         d3
           .zoom()
@@ -252,7 +255,7 @@ export function App() {
 
       function zoomed() {
         console.log(d3.event);
-        innerSvg.attr('transform', d3.event.transform)
+        innerSvg.attr("transform", d3.event.transform);
         // svg.attr("transform", "scale(" + d3.event.transform.k + ")");
       }
 
@@ -278,12 +281,15 @@ export function App() {
 
       var simulation = d3
         .forceSimulation()
-        .force("x", d3.forceX(width / 2).strength(0.4))
-        .force("y", d3.forceY(height / 2).strength(0.6))
-        .force("charge", d3.forceManyBody().strength(-1000))
+        .force("x", d3.forceX(width / 2).strength(0.2))
+        .force("y", d3.forceY(height / 2).strength(0.3))
+        .force("charge", d3.forceManyBody().strength(-2000))
         .force(
           "link",
-          d3.forceLink().id((d) => d.id)
+          d3
+            .forceLink()
+            .id((d) => d.id)
+            .distance(100)
         )
         .force(
           "collide",
@@ -309,42 +315,98 @@ export function App() {
         .data(data.nodes)
         .enter()
         .append("g")
+        // .html((node => {
+        //   console.log(node);
+        //   return (<div>{node.data.Id}</div>)
+        // }))
         .attr("class", function (d) {
           return `group-${d.group}`;
         });
 
+      // .append('foreignobject')
+      // .enter()
+      // .append('div')
+      // .enter()
+      // .append('hola')
+      const nodeDivs = node
+        .append("foreignObject")
+        .attr("width", "60px")
+        .attr("height", "60px")
+        .attr("x", -15)
+        .attr("y", -15)
+        .append("xhtml:div")
+        .attr("class", "node-div")
+        .style("height", "100%")
+        .style("width", "100%")
+        .style('border-radius', '4px')
+        .style("border", "1px solid var(--dd-color-grey-500)")
+        .style("background-color", "var(--dd-color-background)")
+        .style("display", "grid")
+        .style("place-items", "center");
+
+      nodeDivs
+        .append("svg")
+        .attr("width", "15px")
+        .attr("height", "15px")
+        .attr("viewBox", "0 0 15 15")
+        .append("path")
+        .attr("d", (d) => {
+          if (d.group === NODE_TYPE.IMAGE) return ImagePath;
+          else if (d.group === NODE_TYPE.CONTAINER) return ContainerPath;
+          else return VolumePath;
+        })
+        .style("stroke", stroke)
+        .attr("fill", function (d) {
+          if (d.color) return d.color;
+          return color(d.group);
+        });
+
+        nodeDivs.append('p').attr('style', 'width: 60px; font-weight: 600; white-space: nowrap; text-overflow: ellipsis; text-align: center; font-size: 8px; margin-bottom: 0').text(node => node.name || node.id)
+        nodeDivs.append('p').attr('style', 'width: 60px; text-align: center; color: var(--dd-color-grey-500); font-size: 8px; margin-top: 0').text(node => {
+          // if (node.group === NODE_TYPE.IMAGE) console.log(node)
+          if (node.group === NODE_TYPE.IMAGE) return node.data.RepoTags[0].split(':')[1];
+          if (node.group === NODE_TYPE.CONTAINER) return node.data.Ports && node.data.Ports.length ? 'Ports: '+node.data.Ports.map(p => p.PrivatePort).join(',') : 'no ports'
+        })
+      // .html((node) => `<p style="font-size: '10px'">${node.name || node.id}</p>`)
+      // .append("xhtml:object")
+      // .attr('height','100%').attr('width','100%')
+      // .attr('type','image/svg+xml')
+      // .attr('data','http://upload.wikimedia.org/wikipedia/commons/8/84/Konqi_svg.svg')
+      // .append("p")
+      // .attr("innerText", "hola");
+      // .append('img').attr('alt','notloaded');
       // g4.append('path').attr('d', upTri()).attr('fill', 'green');
 
-      svg
-        .selectAll("g.group-1")
-        .append("path")
-        .attr("d", ContainerPath)
-        .style("stroke", stroke)
-        .attr("fill", function (d) {
-          if (d.color) return d.color;
-          return color(d.group);
-        });
+      // svg
+      //   .selectAll("g.group-1")
+      //   .append("path")
+      //   .attr("d", ContainerPath)
+      //   .style("stroke", stroke)
+      //   .attr("fill", function (d) {
+      //     if (d.color) return d.color;
+      //     return color(d.group);
+      //   });
 
-      // images
-      svg
-        .selectAll("g.group-2")
-        .append("path")
-        .attr("d", ImagePath)
-        .style("stroke", stroke)
-        .attr("fill", function (d) {
-          if (d.color) return d.color;
-          return color(d.group);
-        });
+      // // images
+      // svg
+      //   .selectAll("g.group-2")
+      //   .append("path")
+      //   .attr("d", ImagePath)
+      //   .style("stroke", stroke)
+      //   .attr("fill", function (d) {
+      //     if (d.color) return d.color;
+      //     return color(d.group);
+      //   });
 
-      svg
-        .selectAll("g.group-3")
-        .append("path")
-        .attr("d", VolumePath)
-        .style("stroke", stroke)
-        .attr("fill", function (d) {
-          if (d.color) return d.color;
-          return color(d.group);
-        });
+      // svg
+      //   .selectAll("g.group-3")
+      //   .append("path")
+      //   .attr("d", VolumePath)
+      //   .style("stroke", stroke)
+      //   .attr("fill", function (d) {
+      //     if (d.color) return d.color;
+      //     return color(d.group);
+      //   });
 
       // .attr("d", upTri())
       // .attr("transform", function(d){return 'translate(-25, -25)'});
@@ -409,14 +471,10 @@ export function App() {
 
         node.attr("transform", function (d) {
           if (d.group === NODE_TYPE.IMAGE)
-            return (
-              "translate(" + (d.x - 16) + "," + (d.y - 16) + ") scale(1.5)"
-            );
+            return "translate(" + (d.x - 16) + "," + (d.y - 16) + ")";
           if (d.group === NODE_TYPE.VOLUME)
-            return (
-              "translate(" + (d.x - 12) + "," + (d.y - 12) + ") scale(1.5)"
-            );
-          return "translate(" + (d.x - 13) + "," + (d.y - 12) + ") scale(0.2)";
+            return "translate(" + (d.x - 12) + "," + (d.y - 12) + ")";
+          return "translate(" + (d.x - 13) + "," + (d.y - 12) + ")";
         });
       }
       // });
@@ -425,7 +483,7 @@ export function App() {
         if (!d3.event.active) simulation.alphaTarget(0.05).restart();
         d.fx = d.x;
         d.fy = d.y;
-        svg.attr('cursor', 'grabbing');
+        svg.attr("cursor", "grabbing");
       }
 
       function dragged(d) {
@@ -437,40 +495,58 @@ export function App() {
         if (!d3.event.active) simulation.alphaTarget(0);
         d.fx = null;
         d.fy = null;
-        svg.attr('cursor', 'grab');
+        svg.attr("cursor", "grab");
       }
 
       function onclick(d) {
         setSelectedNode(d);
-        console.log(d)
+        console.log(d);
       }
     }
   }, [data]);
+  
+  let width = 900;
+  let height = 600;
+  useLayoutEffect(() => {
+    const graph = document.querySelector('#graph') as any;
+    if (graph && graph.style) graph.style.width = 'calc(100vw - 64px)'
+    if (graph && graph.style) graph.style.height = 'calc(100vh - 128px)'
+  }, []);
 
   return (
     <>
-      <Typography variant="h3">Docker Graph View</Typography>
-      <Grid container gap={4}>
-        <Grid item sx={{ background: "#14222B" }}>
-          <svg ref={svgRef} width="900" height="600"></svg>
+      <Header />
+      <Grid container>
+        <Grid item sx={{ backgroundColor: theme.palette.docker.grey[100] }}>
+          <svg id="graph" ref={svgRef} width={width} height={height}></svg>
         </Grid>
         {selectedNode && (
-            <Card sx={{ position: 'absolute', top: 0, right: 0, height: '100%', minWidth: 275 }}>
-              <CardContent>
-                {selectedNode.group === NODE_TYPE.CONTAINER && (
-                  <ContainerDetails container={selectedNode.data} />
-                )}
-                {selectedNode.group === NODE_TYPE.IMAGE && (
-                  <ImageDetails image={selectedNode.data} />
-                )}
-                {selectedNode.group === NODE_TYPE.VOLUME && (
-                  <VolumeDetails volume={selectedNode.data} />
-                )}
-              </CardContent>
-              <CardActions>
-                <Button size="small" onClick={() => setSelectedNode(undefined)}>Close</Button>
-              </CardActions>
-            </Card>
+          <Card
+            sx={{
+              position: "absolute",
+              top: 0,
+              right: 0,
+              height: "100%",
+              minWidth: 275,
+            }}
+          >
+            <CardContent>
+              {selectedNode.group === NODE_TYPE.CONTAINER && (
+                <ContainerDetails container={selectedNode.data} />
+              )}
+              {selectedNode.group === NODE_TYPE.IMAGE && (
+                <ImageDetails image={selectedNode.data} />
+              )}
+              {selectedNode.group === NODE_TYPE.VOLUME && (
+                <VolumeDetails volume={selectedNode.data} />
+              )}
+            </CardContent>
+            <CardActions>
+              <Button size="small" onClick={() => setSelectedNode(undefined)}>
+                Close
+              </Button>
+            </CardActions>
+          </Card>
         )}
       </Grid>
     </>
